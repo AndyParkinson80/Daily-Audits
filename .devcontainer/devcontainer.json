@@ -1,8 +1,9 @@
 {
   "name": "Python Codespace",
-  "image": "mcr.microsoft.com/devcontainers/python:3.11", 
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
 
-  "postCreateCommand": "python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt",
+  // Run custom setup script
+  "postCreateCommand": "chmod +x .devcontainer/scripts/setup.sh && bash .devcontainer/scripts/setup.sh",
 
   "customizations": {
     "vscode": {

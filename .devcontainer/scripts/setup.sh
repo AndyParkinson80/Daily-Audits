@@ -15,21 +15,33 @@ echo "☁️ Installing Google Cloud SDK..."
 
 # Install dependencies
 sudo apt-get update && sudo apt-get install -y \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    curl \
-    lsb-release
+  apt-transport-https \
+  ca-certificates \
+  gnupg \
+  curl \
+  lsb-release
 
-# Add the Cloud SDK distribution URI and public key
+# Add Cloud SDK repo and key
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" \
   | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
 
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
   | gpg --dearmor | sudo tee /usr/share/keyrings/cloud.google.gpg > /dev/null
 
-# Install the Cloud SDK
+# Install gcloud
 sudo apt-get update && sudo apt-get install -y google-cloud-sdk
 
-echo "✅ gcloud CLI installed successfully."
+echo "✅ gcloud installed:"
 gcloud version
+
+echo "🔐 Authenticating with GCP service account..."
+
+if [ -z "$GCP_SERVICE_ACCOUNT_KEY_JSON" ]; then
+  echo "⚠️  GCP_SERVICE_ACCOUNT_KEY_JSON is not set! Skipping auth."
+else
+  echo "$GCP_SERVICE_ACCOUNT_KEY_JSON" > /tmp/gcp-key.json
+  gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  gcloud config set project YOUR_PROJECT_ID  # TODO: Replace with actual project ID
+  export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+  echo "✅ Authenticated and ADC configured."
+fi
