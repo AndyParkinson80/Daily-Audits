@@ -1,0 +1,5 @@
+gcloud builds submit --tag europe-west2-docker.pkg.dev/api-integrations-412107/imperago-metrics/daily_audit_v3:latest .
+
+gcloud run jobs update daily-audit-v3 --image europe-west2-docker.pkg.dev/api-integrations-412107/imperago-metrics/daily_audit_v3:latest --region europe-west2
+
+gcloud run jobs execute daily-audit-v3 --region europe-west2

@@ -1,0 +1,9 @@
+pandas
+requests
+openpyxl
+db_dtypes
+pandas_gbq
+google-api-python-client
+google-auth
+google-cloud-secret-manager
+google-cloud-bigquery
