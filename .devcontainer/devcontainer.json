@@ -24,8 +24,10 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "containerEnv": {
-    "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/gcp-key.json",
-    "GCP": "${localEnv:GCP}"  // Optional: pass GCP JSON from local env
-  }
+"mounts": [
+  "source=${localEnv:GOOGLE_APPLICATION_CREDENTIALS},target=/tmp/gcp-key.json,type=bind,consistency=cached"
+],
+"containerEnv": {
+  "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/gcp-key.json"
+}
 }
