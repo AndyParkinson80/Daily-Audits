@@ -3,6 +3,9 @@ import json
 import logging
 import time
 import warnings
+import os
+import google.auth
+import sys
 
 import pandas as pd
 
@@ -13,8 +16,49 @@ from googleapiclient.http import MediaIoBaseDownload
 from google.auth import default
 from google.cloud import bigquery
 
+from google.auth.credentials import Credentials
+from google.auth.exceptions import DefaultCredentialsError
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
+from google.oauth2 import service_account
+
+
+
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
+
+
+def get_credentials(scopes=None):
+    """
+    Get Google credentials:
+    - If GOOGLE_APPLICATION_CREDENTIALS is set and points to a file, use that (e.g. local dev).
+    - Otherwise, fallback to ADC (for Cloud Run, GKE, etc.).
+    """
+    scopes = scopes or ['https://www.googleapis.com/auth/cloud-platform']
+    key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+    if key_path and os.path.exists(key_path):
+        print(f"🔐 Using local service account: {key_path}")
+        credentials = service_account.Credentials.from_service_account_file(
+            key_path,
+            scopes=scopes
+        )
+        project_id = credentials.project_id
+    else:
+        try:
+            print("☁️ Using Google Cloud default credentials (ADC)...")
+            credentials, project_id = google.auth.default(scopes=scopes)
+        except DefaultCredentialsError as e:
+            raise RuntimeError(
+                "❌ No valid credentials found. Set GOOGLE_APPLICATION_CREDENTIALS "
+                "or ensure the code is running on a GCP service like Cloud Run."
+            ) from e
+
+    print(f"✅ Authenticated with project: {project_id}")
+    print (credentials)
+    print (project_id)
+    sys.exit()
+    
+    return credentials, project_id
 
 #--------------------------------Download the files from google drive-------------------------------
 
@@ -537,6 +581,8 @@ def create_joined_table():
 # ------------------------------------------------------------ --------------------------------------
 
 if __name__ == '__main__':
+
+    credentials, project = get_credentials()
 
     folder = "Imperago Spreadsheets"
 

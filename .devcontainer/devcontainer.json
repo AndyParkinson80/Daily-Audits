@@ -22,5 +22,10 @@
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "containerEnv": {
+    "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/gcp-key.json",
+    "GCP": "${localEnv:GCP}"  // Optional: pass GCP JSON from local env
   }
 }

@@ -36,12 +36,12 @@ gcloud version
 
 echo "🔐 Authenticating with GCP service account..."
 
-if [ -z "$GCP_SERVICE_ACCOUNT_KEY_JSON" ]; then
+if [ -z "$GCP" ]; then
   echo "⚠️  GCP_SERVICE_ACCOUNT_KEY_JSON is not set! Skipping auth."
 else
-  echo "$GCP_SERVICE_ACCOUNT_KEY_JSON" > /tmp/gcp-key.json
+  echo "$GCP" > /tmp/gcp-key.json
   gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
-  gcloud config set project YOUR_PROJECT_ID  # TODO: Replace with actual project ID
+  gcloud config set project api-integrations-412107  # TODO: Replace with actual project ID
   export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
   echo "✅ Authenticated and ADC configured."
 fi
