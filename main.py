@@ -4,8 +4,6 @@ import logging
 import time
 import warnings
 import os
-import google.auth
-import sys
 
 import pandas as pd
 
@@ -16,49 +14,63 @@ from googleapiclient.http import MediaIoBaseDownload
 from google.auth import default
 from google.cloud import bigquery
 
-from google.auth.credentials import Credentials
 from google.auth.exceptions import DefaultCredentialsError
-from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google.oauth2 import service_account
-
-
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
 
-
-def get_credentials(scopes=None):
+def google_auth():
     """
-    Get Google credentials:
-    - If GOOGLE_APPLICATION_CREDENTIALS is set and points to a file, use that (e.g. local dev).
-    - Otherwise, fallback to ADC (for Cloud Run, GKE, etc.).
-    """
-    scopes = scopes or ['https://www.googleapis.com/auth/cloud-platform']
-    key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-    if key_path and os.path.exists(key_path):
-        print(f"🔐 Using local service account: {key_path}")
-        credentials = service_account.Credentials.from_service_account_file(
-            key_path,
-            scopes=scopes
-        )
-        project_id = credentials.project_id
-    else:
-        try:
-            print("☁️ Using Google Cloud default credentials (ADC)...")
-            credentials, project_id = google.auth.default(scopes=scopes)
-        except DefaultCredentialsError as e:
-            raise RuntimeError(
-                "❌ No valid credentials found. Set GOOGLE_APPLICATION_CREDENTIALS "
-                "or ensure the code is running on a GCP service like Cloud Run."
-            ) from e
-
-    print(f"✅ Authenticated with project: {project_id}")
-    print (credentials)
-    print (project_id)
-    sys.exit()
+    Authenticate with Google Cloud and return credentials and project ID.
     
-    return credentials, project_id
+    First tries to use Application Default Credentials (ADC).
+    If that fails, uses service account credentials from GOOGLE_CLOUD_SECRET environment variable.
+    
+    Returns:
+        tuple: (credentials, project_id)
+        
+    Raises:
+        Exception: If both authentication methods fail
+    """
+    try:
+        # Try Application Default Credentials first
+        credentials, project_id = default()
+        print("Successfully authenticated using Application Default Credentials")
+        #return credentials, project_id
+         
+    except DefaultCredentialsError:
+        print("Application Default Credentials not available, trying service account...")
+        
+        # Try service account from environment variable
+        secret_json = os.getenv('GOOGLE_CLOUD_SECRET')
+        if not secret_json:
+            raise Exception("GOOGLE_CLOUD_SECRET environment variable not found")
+        
+        try:
+            # Parse the JSON credentials
+            service_account_info = json.loads(secret_json)
+            
+            # Create credentials from service account info
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info
+            )
+            
+            # Extract project ID from service account info
+            project_id = service_account_info.get('project_id')
+            if not project_id:
+                raise Exception("project_id not found in service account credentials")
+            
+            print("Successfully authenticated using service account credentials")
+            return credentials, project_id
+            
+        except json.JSONDecodeError:
+            raise Exception("Invalid JSON in GOOGLE_CLOUD_SECRET environment variable")
+        except Exception as e:
+            raise Exception(f"Failed to create service account credentials: {str(e)}")
+    
+    except Exception as e:
+        raise Exception(f"Authentication failed: {str(e)}")
 
 #--------------------------------Download the files from google drive-------------------------------
 
@@ -90,8 +102,8 @@ def download_file(service, file_id):
     file_buffer.seek(0)
     return file_buffer
 
-def load_excel_from_drive(folder_name, keyword):
-    creds, _ = default(scopes=['https://www.googleapis.com/auth/drive.readonly'])
+def load_excel_from_drive(folder_name, keyword , creds):
+
     drive_service = build('drive', 'v3', credentials=creds)
 
     folder_id = get_folder_id_by_name(drive_service, folder_name)
@@ -117,7 +129,7 @@ def deduplicate_table(project: str, dataset: str, table: str):
         dataset (str): BigQuery dataset name.
         table (str): BigQuery table name.
     """
-    client = bigquery.Client(project=project)
+    client = bigquery.Client(credentials=creds,project=project)
     table_ref = f"{project}.{dataset}.{table}"
 
     # Step 1: Count rows before deduplication
@@ -222,7 +234,7 @@ def audits():
 
     query = f"""
         SELECT *
-        FROM `{project}.{dataset}.Audits`
+        FROM `{projectId}.{dataset}.Audits`
         WHERE DATE(ActionTime) IN UNNEST([{unique_days_str}])
     """
     df_bq = client.query(query).to_dataframe()
@@ -234,7 +246,7 @@ def audits():
 
     filtered_df = df.merge(df_bq, how='left', indicator=True).query('_merge == "left_only"').drop(columns='_merge')
 
-    table_id = f"{project}.{dataset}.Audits"
+    table_id = f"{projectId}.{dataset}.Audits"
     job = client.load_table_from_dataframe(filtered_df, table_id)
 
     job.result()
@@ -262,7 +274,7 @@ def clockings():
 
     query = f"""
         SELECT *
-        FROM `{project}.{dataset}.Clockings`
+        FROM `{projectId}.{dataset}.Clockings`
         WHERE DATE(Date) IN UNNEST([{unique_days_str}])
     """
 
@@ -275,7 +287,7 @@ def clockings():
 
     filtered_df = df.merge(df_bq, how='left', indicator=True).query('_merge == "left_only"').drop(columns='_merge')
 
-    table_id = f"{project}.{dataset}.Clockings"
+    table_id = f"{projectId}.{dataset}.Clockings"
     job = client.load_table_from_dataframe(filtered_df, table_id)
 
     job.result()
@@ -291,7 +303,7 @@ def clockings():
 def clean_clockings():
     query = f"""
     SELECT *
-    FROM `{project}.{dataset}.Clockings`
+    FROM `{projectId}.{dataset}.Clockings`
     """
 
     print("\nRemoving Duplicates from Clockings...")
@@ -382,7 +394,7 @@ def clean_clockings():
     ]
 
     # Create a table reference for the new table
-    table_id = f"{project}.{dataset}.clockings_cleaned"
+    table_id = f"{projectId}.{dataset}.clockings_cleaned"
     table = bigquery.Table(table_id, schema=schema)
 
     # Create the table
@@ -423,7 +435,7 @@ def clean_clockings():
 def clean_audits():
     query = f"""
         SELECT *
-        FROM `{project}.{dataset}.Audits`
+        FROM `{projectId}.{dataset}.Audits`
         """
 
     print("\nSimplifying Audits")
@@ -458,15 +470,19 @@ def clean_audits():
     print(f"After removing general duplicates: {len(df_deduped)} rows remain (from original {len(df)} rows).")
 
     # Write deduped data to BigQuery
-    destination_table = f"{project}.{dataset}.Audits_cleaned"
+    destination_table = f"{projectId}.{dataset}.Audits_cleaned"
     print(f"Writing cleaned data to {destination_table}...")
     import pandas_gbq
-    pandas_gbq.to_gbq(
-        df_deduped,
-        destination_table=destination_table,
-        project_id=f"{project}",
-        if_exists="replace"
+    
+    job_config = bigquery.LoadJobConfig(
+        write_disposition="WRITE_TRUNCATE",
     )
+    
+    job = client.load_table_from_dataframe(
+        df_deduped, destination_table, job_config=job_config
+    )
+    job.result()
+
     print("Data successfully written to Audits_cleaned table.")
     
     print("\nStep 2: Consolidating related records...")
@@ -535,15 +551,14 @@ def clean_audits():
     print(f"After consolidation: {len(consolidated_df)} rows (from deduped {len(df_deduped)} rows)")
 
     # Export to BigQuery
-    consolidated_table = f"{project}.{dataset}.Audits_cleaned"
+    consolidated_table = f"{projectId}.{dataset}.Audits_cleaned"
     print(f"Writing consolidated data to {consolidated_table}...")
     
-    pandas_gbq.to_gbq(
-        consolidated_df,
-        destination_table=consolidated_table,
-        project_id=f"{project}",
-        if_exists="replace"
+    job = client.load_table_from_dataframe(
+        consolidated_df, consolidated_table, job_config=job_config
     )
+    job.result()
+
     print("Data successfully written to Audits_cleaned table.")
     
     return consolidated_df
@@ -551,10 +566,10 @@ def clean_audits():
 # --------------------------------Join cleaned Data for looker --------------------------------------
 
 def create_joined_table():
-    client = bigquery.Client(project=project)
+    client = bigquery.Client(credentials=creds,project=projectId)
 
     query = f"""
-    CREATE OR REPLACE TABLE `{project}.{dataset}.Joined` AS
+    CREATE OR REPLACE TABLE `{projectId}.{dataset}.Joined` AS
     SELECT DISTINCT 
       c.*,
       a.ActionTime, 
@@ -565,8 +580,8 @@ def create_joined_table():
       a.FinancialYear,
       a.WeekNumber,
       lm.LM_Path AS LM_Path
-    FROM `{project}.{dataset}.Audits_cleaned` AS a
-    JOIN `{project}.{dataset}.clockings_cleaned` AS c
+    FROM `{projectId}.{dataset}.Audits_cleaned` AS a
+    JOIN `{projectId}.{dataset}.clockings_cleaned` AS c
       ON a.ItemDate = c.Date 
       AND a.CascadeId = c.Staff_No
     LEFT JOIN `universal_lookup_tables.id_to_lm_path` AS lm
@@ -576,25 +591,28 @@ def create_joined_table():
     query_job = client.query(query)
     query_job.result()  # Wait for job to complete
 
-    print(f"\nTable `{project}.{dataset}.Joined` created successfully.")
+    print(f"\nTable `{projectId}.{dataset}.Joined` created successfully.")
 
 # ------------------------------------------------------------ --------------------------------------
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    try:
+        creds, projectId = google_auth()
+        print(f"Authenticated successfully! Project ID: {project}")
+    except Exception as e:
+        print(f"Authentication error: {e}")
 
-    credentials, project = get_credentials()
 
     folder = "Imperago Spreadsheets"
 
-    audit_daily_df = load_excel_from_drive(folder, "Audit")
+    audit_daily_df = load_excel_from_drive(folder, "Audit", creds)
     print("\nAudit DataFrame loaded:")
 
-    clock_daily_df = load_excel_from_drive(folder, "Clock")
+    clock_daily_df = load_excel_from_drive(folder, "Clock", creds)
     print("\nClock DataFrame loaded:")
 
-    client = bigquery.Client()
+    client = bigquery.Client(credentials=creds,project=projectId)
 
-    project = "api-integrations-412107"
     dataset = "Imperago_downloads"
 
     audits()
