@@ -7,24 +7,17 @@ from googleapiclient.http import MediaFileUpload
 import datetime
 import tarfile
 
-'''
-Runs the following three commands to upload the program to google cloud artifact storage, update the job and run it (optional using Control Flag)
-#gcloud builds submit --tag europe-west2-docker.pkg.dev/api-integrations-412107/imperago-metrics/daily_audit_v3:latest .
-#gcloud run jobs update daily-audit-v3 --image europe-west2-docker.pkg.dev/api-integrations-412107/imperago-metrics/daily_audit_v3:latest --region europe-west2
-#gcloud run jobs execute daily-audit-v3 --region europe-west2
-'''
-
 # Control flag
 runGcloud = False
 
 # Configuration
-PROJECT_ID = "api-integrations-412107"
+PROJECT_ID = os.environ.get("PROJECT_ID")
 REGION = "europe-west2"
 REPO = "imperago-metrics"
 IMAGE_NAME = "daily_audit_v3"
 TAG = f"{REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO}/{IMAGE_NAME}:latest"
 JOB_NAME = "daily-audit-v3"
-BUCKET_NAME = "gcf-artifacts-" + PROJECT_ID  # Must exist
+BUCKET_NAME = f"gcf-artifacts-{PROJECT_ID}"  # Must exist
 SOURCE_TAR = "source.tar.gz"
 
 # Step 1: Get secret
