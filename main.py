@@ -37,7 +37,7 @@ def google_auth():
         # Try Application Default Credentials first
         credentials, project_id = default()
         print("Successfully authenticated using Application Default Credentials")
-        #return credentials, project_id
+        return credentials, project_id
          
     except DefaultCredentialsError:
         print("Application Default Credentials not available, trying service account...")
@@ -598,7 +598,7 @@ def create_joined_table():
 if __name__ == "__main__":
     try:
         creds, projectId = google_auth()
-        print(f"Authenticated successfully! Project ID: {project}")
+        print(f"Authenticated successfully! Project ID: {projectId}")
     except Exception as e:
         print(f"Authentication error: {e}")
 

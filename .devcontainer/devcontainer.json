@@ -1,3 +1,4 @@
+
 {
   "name": "Python 3.12 Environment",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
@@ -11,9 +12,17 @@
       "extensions": [
         "ms-python.python",
         "ms-python.black-formatter"
-      ]
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspaces/${localWorkspaceFolderBasename}/.venv/bin/python"
+      }
     }
   },
-  "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
+  "postCreateCommand": [
+    "python", "-m", "venv", ".venv"
+  ],
+  "postStartCommand": [
+    "bash", "-c", "source .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt"
+  ],
   "remoteUser": "vscode"
 }
