@@ -1,13 +1,18 @@
 import os
 import json
 import tempfile
-import subprocess
-import time
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import datetime
 import tarfile
+
+'''
+Runs the following three commands to upload the program to google cloud artifact storage, update the job and run it (optional using Control Flag)
+#gcloud builds submit --tag europe-west2-docker.pkg.dev/api-integrations-412107/imperago-metrics/daily_audit_v3:latest .
+#gcloud run jobs update daily-audit-v3 --image europe-west2-docker.pkg.dev/api-integrations-412107/imperago-metrics/daily_audit_v3:latest --region europe-west2
+#gcloud run jobs execute daily-audit-v3 --region europe-west2
+'''
 
 # Control flag
 runGcloud = False
