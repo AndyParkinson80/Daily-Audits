@@ -5,14 +5,14 @@ import time
 import warnings
 import os
 
-import pandas as pd
-
 from collections import defaultdict
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.auth import default
 from google.cloud import bigquery
+
+import pandas as pd
 
 from google.auth.exceptions import DefaultCredentialsError
 from google.oauth2 import service_account
@@ -367,19 +367,10 @@ def clean_clockings():
 
     cleaned_df = pd.DataFrame(cleaned_data)
 
-    # Save to JSON file for local review
-    if data:
-        json_filename = f"clockings_cleaned.json"
-
     # Convert date objects to ISO format for JSON serialization
     json_data = cleaned_df.copy()
     json_data['Date'] = json_data['Date'].apply(lambda x: x.isoformat() if x else None)
 
-    # Save to JSON file
-    with open(json_filename, 'w') as f:
-        json.dump(json_data.to_dict('records'), f, indent=4)
-
-    print(f"Saved cleaned data to {json_filename}")
     print(f"Total records: {len(json_data)}")
 
     # Create a schema for the new table
@@ -445,7 +436,6 @@ def clean_audits():
     results = query_job.result()
 
     # Convert to pandas DataFrame
-    import pandas as pd
     df = results.to_dataframe()
     print(f"Retrieved {len(df)} rows from BigQuery.")
 
@@ -472,7 +462,6 @@ def clean_audits():
     # Write deduped data to BigQuery
     destination_table = f"{projectId}.{dataset}.Audits_cleaned"
     print(f"Writing cleaned data to {destination_table}...")
-    import pandas_gbq
     
     job_config = bigquery.LoadJobConfig(
         write_disposition="WRITE_TRUNCATE",
