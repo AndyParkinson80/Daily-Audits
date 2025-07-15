@@ -34,7 +34,6 @@ def create_tarball():
     print("📦 Creating tarball with Python tarfile module...")
     with tarfile.open(SOURCE_TAR, "w:gz") as tar:
         for root, dirs, files in os.walk("."):
-            # Exclude common unwanted dirs
             if "__pycache__" in root or ".git" in root:
                 continue
             for file in files:
@@ -56,7 +55,7 @@ def upload_source(credentials):
     media = MediaFileUpload(SOURCE_TAR, resumable=True)
     request = storage.objects().insert(bucket=BUCKET_NAME, name=object_name, media_body=media)
     response = request.execute()
-    print(f"✅ Uploaded to: gs://{BUCKET_NAME}/{object_name}")
+    print("✅ Tarball uploaded to gcs bucket")
     return object_name
 
 # Step 4: Trigger Cloud Build
@@ -74,15 +73,11 @@ def trigger_cloud_build(credentials, object_name):
         "steps": [
             {
                 "name": "gcr.io/cloud-builders/docker",
-                "args": [
-                    "build", "-t", TAG, "."
-                ]
+                "args": ["build", "-t", TAG, "."]
             },
             {
                 "name": "gcr.io/cloud-builders/docker",
-                "args": [
-                    "push", TAG
-                ]
+                "args": ["push", TAG]
             }
         ],
         "images": [TAG]
@@ -94,20 +89,12 @@ def trigger_cloud_build(credentials, object_name):
 # Step 5: Update Job (without running)
 def update_job_only(credentials):
     run_client = build("run", "v2", credentials=credentials)
-
     name = f"projects/{PROJECT_ID}/locations/{REGION}/jobs/{JOB_NAME}"
     
     try:
-        # Get the current job configuration
         job = run_client.projects().locations().jobs().get(name=name).execute()
-        
-        # Debug: Print job structure to understand the format
-        print("🔍 Job structure keys:", list(job.keys()))
-        
-        # Try different possible paths for the container image
         updated = False
-        
-        # Path 1: Direct spec path (v2 API)
+
         if "spec" in job:
             try:
                 if "template" in job["spec"]:
@@ -115,40 +102,58 @@ def update_job_only(credentials):
                     if "spec" in template and "template" in template["spec"]:
                         containers = template["spec"]["template"]["spec"]["containers"]
                         containers[0]["image"] = TAG
+
+                        # ✅ Inject PROJECT_ID env var
+                        containers[0].setdefault("env", [])
+                        env_vars = {env["name"]: env for env in containers[0]["env"]}
+                        env_vars["PROJECT_ID"] = {"name": "PROJECT_ID", "value": PROJECT_ID}
+                        containers[0]["env"] = list(env_vars.values())
+
                         updated = True
                         print("✅ Updated using v2 spec path")
                     elif "template" in template:
-                        # Alternative v2 structure
                         containers = template["template"]["spec"]["containers"]
                         containers[0]["image"] = TAG
+
+                        # ✅ Inject PROJECT_ID env var
+                        containers[0].setdefault("env", [])
+                        env_vars = {env["name"]: env for env in containers[0]["env"]}
+                        env_vars["PROJECT_ID"] = {"name": "PROJECT_ID", "value": PROJECT_ID}
+                        containers[0]["env"] = list(env_vars.values())
+
                         updated = True
                         print("✅ Updated using alternative v2 spec path")
             except KeyError as e:
                 print(f"Failed v2 spec path: {e}")
-        
-        # Path 2: Template path (v1 API style)
+
         if not updated and "template" in job:
             try:
                 template = job["template"]
                 if "template" in template and "containers" in template["template"]:
-                    template["template"]["containers"][0]["image"] = TAG
+                    containers = template["template"]["containers"]
+                    containers[0]["image"] = TAG
+
+                    # ✅ Inject PROJECT_ID env var
+                    containers[0].setdefault("env", [])
+                    env_vars = {env["name"]: env for env in containers[0]["env"]}
+                    env_vars["PROJECT_ID"] = {"name": "PROJECT_ID", "value": PROJECT_ID}
+                    containers[0]["env"] = list(env_vars.values())
+
                     updated = True
                     print("✅ Updated using v1 template path")
             except KeyError as e:
                 print(f"Failed v1 template path: {e}")
-        
+
         if not updated:
             print("❌ Could not find container image path in job structure")
             print("Full job structure:")
             print(json.dumps(job, indent=2))
             return
-        
-        # Update the job
+
         run_client.projects().locations().jobs().patch(
             name=name,
             body=job
         ).execute()
-        
         print("✅ Cloud Run job updated (not executed)")
         
     except Exception as e:
@@ -158,20 +163,13 @@ def update_job_only(credentials):
 # Step 6: Update and Run Job
 def update_and_run_job(credentials):
     run_client = build("run", "v2", credentials=credentials)
-
     name = f"projects/{PROJECT_ID}/locations/{REGION}/jobs/{JOB_NAME}"
     
     try:
-        # Get the current job configuration
         job = run_client.projects().locations().jobs().get(name=name).execute()
-        
-        # Debug: Print job structure to understand the format
         print("🔍 Job structure keys:", list(job.keys()))
-        
-        # Try different possible paths for the container image
         updated = False
-        
-        # Path 1: Direct spec path (v2 API)
+
         if "spec" in job:
             try:
                 if "template" in job["spec"]:
@@ -179,57 +177,72 @@ def update_and_run_job(credentials):
                     if "spec" in template and "template" in template["spec"]:
                         containers = template["spec"]["template"]["spec"]["containers"]
                         containers[0]["image"] = TAG
+
+                        # ✅ Inject PROJECT_ID env var
+                        containers[0].setdefault("env", [])
+                        env_vars = {env["name"]: env for env in containers[0]["env"]}
+                        env_vars["PROJECT_ID"] = {"name": "PROJECT_ID", "value": PROJECT_ID}
+                        containers[0]["env"] = list(env_vars.values())
+
                         updated = True
                         print("✅ Updated using v2 spec path")
                     elif "template" in template:
-                        # Alternative v2 structure
                         containers = template["template"]["spec"]["containers"]
                         containers[0]["image"] = TAG
+
+                        # ✅ Inject PROJECT_ID env var
+                        containers[0].setdefault("env", [])
+                        env_vars = {env["name"]: env for env in containers[0]["env"]}
+                        env_vars["PROJECT_ID"] = {"name": "PROJECT_ID", "value": PROJECT_ID}
+                        containers[0]["env"] = list(env_vars.values())
+
                         updated = True
                         print("✅ Updated using alternative v2 spec path")
             except KeyError as e:
                 print(f"Failed v2 spec path: {e}")
-        
-        # Path 2: Template path (v1 API style)
+
         if not updated and "template" in job:
             try:
                 template = job["template"]
                 if "template" in template and "containers" in template["template"]:
-                    template["template"]["containers"][0]["image"] = TAG
+                    containers = template["template"]["containers"]
+                    containers[0]["image"] = TAG
+
+                    # ✅ Inject PROJECT_ID env var
+                    containers[0].setdefault("env", [])
+                    env_vars = {env["name"]: env for env in containers[0]["env"]}
+                    env_vars["PROJECT_ID"] = {"name": "PROJECT_ID", "value": PROJECT_ID}
+                    containers[0]["env"] = list(env_vars.values())
+
                     updated = True
                     print("✅ Updated using v1 template path")
             except KeyError as e:
                 print(f"Failed v1 template path: {e}")
-        
+
         if not updated:
             print("❌ Could not find container image path in job structure")
             print("Full job structure:")
             print(json.dumps(job, indent=2))
             return
-        
-        # Update the job
+
         run_client.projects().locations().jobs().patch(
             name=name,
             body=job
         ).execute()
-        
         print("✅ Cloud Run job updated")
-        
-        # Execute job
+
         response = run_client.projects().locations().jobs().run(name=name, body={}).execute()
         print("🚀 Job execution started.")
-        
-        # Extract execution name from response
         execution_name = response.get("metadata", {}).get("name", "")
         if execution_name:
             print(f"📋 Execution name: {execution_name.split('/')[-1]}")
             print(f"🔗 Logs: {response.get('metadata', {}).get('logUri', 'N/A')}")
-                    
         print(json.dumps(response, indent=2))
         
     except Exception as e:
         print(f"❌ Error updating/running job: {e}")
         raise
+
 
 if __name__ == "__main__":
     credentials = service_account.Credentials.from_service_account_file(
