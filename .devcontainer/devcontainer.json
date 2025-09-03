@@ -1,7 +1,11 @@
 {
-  "name": "Python 3.12 Slim Environment",
-  "image": "python:3.12-slim",
-  "features": {},
+  "name": "Python 3.12 Environment",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -9,14 +13,15 @@
         "ms-python.black-formatter"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python"
+        "python.defaultInterpreterPath": "/workspaces/${localWorkspaceFolderBasename}/.venv/bin/python"
       }
     }
   },
   "postCreateCommand": [
-    "apt-get update && apt-get install -y build-essential gcc git curl",
-    "pip install --upgrade pip",
-    "pip install --no-cache-dir -r requirements.txt"
+    "python", "-m", "venv", ".venv"
   ],
-  "remoteUser": "root"
+  "postStartCommand": [
+    "bash", "-c", "source .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt"
+  ],
+  "remoteUser": "vscode"
 }

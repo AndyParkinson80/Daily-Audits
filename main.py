@@ -4,6 +4,7 @@ import logging
 import time
 import warnings
 import os
+import sys
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -230,14 +231,20 @@ def audits():
     df = df.where(df.notna(), None)
 
     unique_days = df['ActionTime'].unique().tolist()
-    unique_days_str = ", ".join([f"DATE '{day}'" for day in unique_days])
 
     query = f"""
         SELECT *
         FROM `{projectId}.{dataset}.Audits`
-        WHERE DATE(ActionTime) IN UNNEST([{unique_days_str}])
+        WHERE DATE(ActionTime) IN UNNEST(@days)
     """
-    df_bq = client.query(query).to_dataframe()
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ArrayQueryParameter("days", "DATE", unique_days)
+        ]
+    )
+
+    df_bq = client.query(query, job_config=job_config).to_dataframe()
 
     df['ItemDate'] = pd.to_datetime(df['ItemDate']).dt.date
     df_bq['ItemDate'] = pd.to_datetime(df_bq['ItemDate']).dt.date
@@ -594,11 +601,15 @@ if __name__ == "__main__":
 
     folder = "Imperago Spreadsheets"
 
-    audit_daily_df = load_excel_from_drive(folder, "Audit", creds)
+    audit_daily_df = load_excel_from_drive(folder, "__audit__", creds)
     print("\nAudit DataFrame loaded:")
 
-    clock_daily_df = load_excel_from_drive(folder, "Clock", creds)
+    print (audit_daily_df)
+
+    clock_daily_df = load_excel_from_drive(folder, "__clock__", creds)
     print("\nClock DataFrame loaded:")
+
+    print (clock_daily_df)
 
     client = bigquery.Client(credentials=creds,project=projectId)
 
