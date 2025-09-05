@@ -230,7 +230,11 @@ def audits():
     df['ActionTime'] = pd.to_datetime(df['ActionTime'], format='%d %b %Y, %H:%M:%S', errors='coerce').dt.date
     df = df.where(df.notna(), None)
 
-    unique_days = df['ActionTime'].unique().tolist()
+    unique_days = (
+        pd.Series(df['ActionTime'].dt.date.unique())  # convert to date only
+        .dropna()                                     # remove NaT
+        .tolist()
+    )
 
     query = f"""
         SELECT *

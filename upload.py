@@ -8,7 +8,7 @@ import datetime
 import tarfile
 
 # Control flag
-runGcloud = False
+runGcloud = True
 
 # Configuration
 PROJECT_ID = os.environ.get("PROJECT_ID")
