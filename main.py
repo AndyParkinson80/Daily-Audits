@@ -231,7 +231,7 @@ def audits():
     df = df.where(df.notna(), None)
 
     unique_days = (
-        pd.Series(df['ActionTime'].dt.date.unique())  # convert to date only
+        pd.Series(df['ActionTime'].unique())  # convert to date only
         .dropna()                                     # remove NaT
         .tolist()
     )
